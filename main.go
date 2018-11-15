@@ -13,6 +13,9 @@ import (
 
 func main() {
 	portEnv := os.Getenv("KEE_PORT")
+	if portEnv == "" {
+		portEnv = "9111"
+	}
 	portString := fmt.Sprintf(":%s", portEnv)
 
 	includeNormalEventsEnv := os.Getenv("KEE_INCLUDE_NORMAL_EVENTS")
