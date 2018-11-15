@@ -10,10 +10,11 @@ import (
 )
 
 type EventClient struct {
-	kube *kubernetes.Clientset
+	kube                *kubernetes.Clientset
+	includeNormalEvents bool
 }
 
-func NewEventClient() (client EventClient, err error) {
+func NewEventClient(includeNormalEvents bool) (client EventClient, err error) {
 	config, err := rest.InClusterConfig()
 	if err != nil {
 		return
@@ -25,14 +26,22 @@ func NewEventClient() (client EventClient, err error) {
 	}
 
 	client = EventClient{
-		kube: kubeClient,
+		kube:                kubeClient,
+		includeNormalEvents: includeNormalEvents,
 	}
 
 	return
 }
 
 func (e EventClient) Scrape(ch chan<- prometheus.Metric) error {
-	list, err := e.kube.CoreV1().Events("").List(metav1.ListOptions{FieldSelector: "type==Warning"})
+
+	opts := metav1.ListOptions{FieldSelector: "type==Warning"}
+
+	if e.includeNormalEvents {
+		opts = metav1.ListOptions{}
+	}
+
+	list, err := e.kube.CoreV1().Events("").List(opts)
 	if err != nil {
 		return err
 	}
@@ -42,7 +51,7 @@ func (e EventClient) Scrape(ch chan<- prometheus.Metric) error {
 			prometheus.NewDesc(
 				"kubernetes_event_count",
 				"Kubernetes events",
-				[]string{"kubernetes_namespace", "event_type", "event_name", "object_kind", "object_name", "event_reason"},
+				[]string{"kubernetes_namespace", "event_type", "event_name", "event_message", "object_kind", "object_name", "event_reason"},
 				nil,
 			),
 			prometheus.GaugeValue,
@@ -50,6 +59,7 @@ func (e EventClient) Scrape(ch chan<- prometheus.Metric) error {
 			event.InvolvedObject.Namespace,
 			event.Type,
 			event.Name,
+			event.Message,
 			event.InvolvedObject.Kind,
 			event.InvolvedObject.Name,
 			event.Reason,

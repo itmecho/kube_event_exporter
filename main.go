@@ -1,7 +1,9 @@
 package main
 
 import (
+	"fmt"
 	"net/http"
+	"os"
 
 	"github.com/prometheus/client_golang/prometheus"
 
@@ -10,9 +12,17 @@ import (
 )
 
 func main() {
-	//This section will start the HTTP server and expose
-	//any metrics on the /metrics endpoint.
-	eventClient, err := NewEventClient()
+	portEnv := os.Getenv("KEE_PORT")
+	portString := fmt.Sprintf(":%s", portEnv)
+
+	includeNormalEventsEnv := os.Getenv("KEE_INCLUDE_NORMAL_EVENTS")
+	includeNormalEventsBool := false
+
+	if includeNormalEventsEnv == "true" {
+		includeNormalEventsBool = true
+	}
+
+	eventClient, err := NewEventClient(includeNormalEventsBool)
 	if err != nil {
 		log.Fatalf("Failed to create the event client: %s", err)
 	}
@@ -22,6 +32,6 @@ func main() {
 	}
 
 	http.Handle("/metrics", promhttp.Handler())
-	log.Info("Beginning to serve on port :9111")
-	log.Fatal(http.ListenAndServe(":9111", nil))
+	log.Infof("Beginning to serve on port %s", portString)
+	log.Fatal(http.ListenAndServe(portString, nil))
 }
