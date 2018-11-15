@@ -4,4 +4,4 @@ build:
 	go build
 
 docker: build
-	docker build -t itmecho/kube_events_exporter .
+	docker build -t itmecho/kube_event_exporter .
