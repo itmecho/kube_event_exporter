@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -11,10 +12,11 @@ import (
 
 type EventClient struct {
 	kube                *kubernetes.Clientset
-	includeNormalEvents bool
+	IncludeNormalEvents bool
+	TimeWindowMinutes   time.Duration
 }
 
-func NewEventClient(includeNormalEvents bool) (client EventClient, err error) {
+func NewEventClient() (client EventClient, err error) {
 	config, err := rest.InClusterConfig()
 	if err != nil {
 		return
@@ -26,8 +28,10 @@ func NewEventClient(includeNormalEvents bool) (client EventClient, err error) {
 	}
 
 	client = EventClient{
-		kube:                kubeClient,
-		includeNormalEvents: includeNormalEvents,
+		kube: kubeClient,
+
+		// TODO make this configurable
+		TimeWindowMinutes: 5,
 	}
 
 	return
@@ -37,7 +41,7 @@ func (e EventClient) Scrape(ch chan<- prometheus.Metric) error {
 
 	opts := metav1.ListOptions{FieldSelector: "type==Warning"}
 
-	if e.includeNormalEvents {
+	if e.IncludeNormalEvents {
 		opts = metav1.ListOptions{}
 	}
 
@@ -46,7 +50,14 @@ func (e EventClient) Scrape(ch chan<- prometheus.Metric) error {
 		return err
 	}
 
+	timeWindow := &metav1.Time{
+		Time: time.Now().Add(-e.TimeWindowMinutes * time.Minute),
+	}
+
 	for _, event := range list.Items {
+		if event.LastTimestamp.Before(timeWindow) {
+			continue
+		}
 		metric, err := prometheus.NewConstMetric(
 			prometheus.NewDesc(
 				"kubernetes_event_count",

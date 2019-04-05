@@ -18,17 +18,12 @@ func main() {
 	}
 	portString := fmt.Sprintf(":%s", portEnv)
 
-	includeNormalEventsEnv := os.Getenv("KEE_INCLUDE_NORMAL_EVENTS")
-	includeNormalEventsBool := false
-
-	if includeNormalEventsEnv == "true" {
-		includeNormalEventsBool = true
-	}
-
-	eventClient, err := NewEventClient(includeNormalEventsBool)
+	eventClient, err := NewEventClient()
 	if err != nil {
 		log.Fatalf("Failed to create the event client: %s", err)
 	}
+
+	eventClient.IncludeNormalEvents = os.Getenv("KEE_INCLUDE_NORMAL_EVENTS") == "true"
 
 	if err := prometheus.Register(NewExporter(eventClient)); err != nil {
 		log.Fatalf("Failed to register exporter: %s", err)
